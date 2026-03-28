@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Raw data (large files, API outputs)
+data/raw/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
