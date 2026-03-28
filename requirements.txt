@@ -1,0 +1,13 @@
+entsoe-py
+pandas
+sqlalchemy
+psycopg2-binary
+python-dotenv
+requests
+scikit-learn
+xgboost
+matplotlib
+plotly
+statsmodels
+jupyter
+numpy
