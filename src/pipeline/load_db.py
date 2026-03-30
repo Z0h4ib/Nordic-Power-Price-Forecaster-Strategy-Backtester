@@ -22,6 +22,7 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 # ---------------------------------------------------------------------------
@@ -106,7 +107,7 @@ def load_env() -> dict[str, str]:
     return creds
 
 
-def get_engine(creds: dict[str, str]):
+def get_engine(creds: dict[str, str]) -> Engine:
     """
     Build a SQLAlchemy engine from DB credentials.
 
@@ -135,7 +136,7 @@ def get_engine(creds: dict[str, str]):
 # Schema
 # ---------------------------------------------------------------------------
 
-def apply_schema(engine) -> None:
+def apply_schema(engine: Engine) -> None:
     """
     Apply db/schema.sql to ensure all tables and indexes exist.
 
@@ -174,7 +175,7 @@ def apply_schema(engine) -> None:
 # CSV loading
 # ---------------------------------------------------------------------------
 
-def load_csv(engine, csv_filename: str, table_name: str, ts_col: str) -> int:
+def load_csv(engine: Engine, csv_filename: str, table_name: str, ts_col: str) -> int:
     """
     Load a raw CSV into a PostgreSQL table using INSERT ... ON CONFLICT DO NOTHING.
 
@@ -233,7 +234,7 @@ def load_csv(engine, csv_filename: str, table_name: str, ts_col: str) -> int:
     return inserted
 
 
-def load_all_csvs(engine) -> dict[str, int]:
+def load_all_csvs(engine: Engine) -> dict[str, int]:
     """
     Load all three raw CSVs into their respective tables.
 
@@ -256,7 +257,7 @@ def load_all_csvs(engine) -> dict[str, int]:
 # Data quality checks
 # ---------------------------------------------------------------------------
 
-def check_consecutive_missing_prices(engine) -> list[str]:
+def check_consecutive_missing_prices(engine: Engine) -> list[str]:
     """
     Check that no bidding zone has more than 48 consecutive missing hourly prices.
 
@@ -315,7 +316,7 @@ def check_consecutive_missing_prices(engine) -> list[str]:
     return warnings
 
 
-def check_negative_generation(engine) -> list[str]:
+def check_negative_generation(engine: Engine) -> list[str]:
     """
     Check that no generation column contains negative values.
 
@@ -364,7 +365,7 @@ def check_negative_generation(engine) -> list[str]:
     return warnings
 
 
-def check_price_sanity(engine) -> list[str]:
+def check_price_sanity(engine: Engine) -> list[str]:
     """
     Flag prices outside the expected range of -500 to 3000 EUR/MWh.
 
@@ -418,7 +419,7 @@ def check_price_sanity(engine) -> list[str]:
     return warnings
 
 
-def check_weather_alignment(engine) -> list[str]:
+def check_weather_alignment(engine: Engine) -> list[str]:
     """
     Check that weather timestamps align with price timestamps.
 
@@ -476,7 +477,7 @@ def check_weather_alignment(engine) -> list[str]:
     return warnings
 
 
-def run_quality_checks(engine) -> list[str]:
+def run_quality_checks(engine: Engine) -> list[str]:
     """
     Run all four data quality checks and collect warnings.
 
@@ -518,15 +519,15 @@ def run_quality_checks(engine) -> list[str]:
 # Summary
 # ---------------------------------------------------------------------------
 
-def print_summary(engine, insert_counts: dict[str, int], warnings: list[str]) -> None:
+def print_summary(engine: Engine, insert_counts: dict[str, int], warnings: list[str]) -> None:
     """
-    Print a human-readable summary of the load run to stdout.
+    Log a human-readable summary of the load run.
 
     Includes row counts per table, date ranges, and any quality warnings.
 
     Parameters
     ----------
-    engine : sqlalchemy.engine.Engine
+    engine : Engine
     insert_counts : dict
         Maps table name → rows inserted this run.
     warnings : list of str
@@ -538,9 +539,7 @@ def print_summary(engine, insert_counts: dict[str, int], warnings: list[str]) ->
         "weather":     "timestamp_utc",
     }
 
-    print("\n" + "=" * 60)
-    print("  LOAD SUMMARY")
-    print("=" * 60)
+    lines = ["", "=" * 60, "  LOAD SUMMARY", "=" * 60]
 
     with engine.connect() as conn:
         for table, ts_col in table_meta.items():
@@ -553,22 +552,25 @@ def print_summary(engine, insert_counts: dict[str, int], warnings: list[str]) ->
             min_ts, max_ts = date_row
 
             inserted_this_run = insert_counts.get(table, 0)
-            print(f"\n  {table}")
-            print(f"    Total rows in DB : {total:,}")
-            print(f"    Inserted this run: {inserted_this_run:,}")
+            lines.append(f"\n  {table}")
+            lines.append(f"    Total rows in DB : {total:,}")
+            lines.append(f"    Inserted this run: {inserted_this_run:,}")
             if min_ts and max_ts:
-                print(f"    Date range       : {pd.Timestamp(min_ts).date()} → {pd.Timestamp(max_ts).date()}")
+                lines.append(
+                    f"    Date range       : {pd.Timestamp(min_ts).date()} → {pd.Timestamp(max_ts).date()}"
+                )
             else:
-                print("    Date range       : (empty)")
+                lines.append("    Date range       : (empty)")
 
-    print(f"\n  Quality warnings : {len(warnings)}")
+    lines.append(f"\n  Quality warnings : {len(warnings)}")
     if warnings:
         for w in warnings:
-            print(f"    ⚠  {w}")
+            lines.append(f"    ⚠  {w}")
     else:
-        print("    All checks passed.")
+        lines.append("    All checks passed.")
 
-    print("=" * 60 + "\n")
+    lines.append("=" * 60)
+    log.info("\n".join(lines))
 
 
 # ---------------------------------------------------------------------------

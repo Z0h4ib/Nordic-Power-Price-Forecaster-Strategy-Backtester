@@ -1,3 +1,21 @@
+"""
+src/backtest/monte_carlo.py
+
+Bootstrap Monte Carlo stress test for the Nordic Power trading strategy.
+
+Takes the historical daily P&L series from the backtest and resamples it
+with replacement (1 000 simulations, same length as the original) to build
+a distribution of Sharpe ratios and max drawdowns.  This tests whether the
+strategy's edge is robust or overfitted to a specific historical path.
+
+If the 5th-percentile Sharpe is still positive the strategy has a genuine
+edge.  If it turns negative the results may be path-dependent.
+
+Usage::
+
+    python -m src.backtest.monte_carlo --threshold 0.05
+"""
+
 import argparse
 import logging
 from pathlib import Path
@@ -9,11 +27,25 @@ import pandas as pd
 # Logging & Paths
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_DIR = PROJECT_ROOT / "data" / "results"
+RESULTS_DIR  = PROJECT_ROOT / "data" / "results"
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+#: Annualisation factor used for Sharpe ratio (daily P&L → annual).
+TRADING_DAYS_PER_YEAR = 252
+
+#: Minimum recommended history length; warn if dataset is shorter.
+MIN_RECOMMENDED_DAYS = 252
 
 # ---------------------------------------------------------------------------
 # Monte Carlo Bootstrap
@@ -41,13 +73,16 @@ def bootstrap_strategy(daily_pnl: pd.Series, n_simulations: int = 1000, seed: in
     pd.DataFrame
         DataFrame with columns: sim_id, total_return, sharpe_ratio, max_drawdown
     """
-    log.info(f"Starting Monte Carlo Bootstrap Stress Test ({n_simulations} simulations, seed={seed})...")
-    
+    log.info("Starting Monte Carlo Bootstrap Stress Test (%d simulations, seed=%d)…", n_simulations, seed)
+
     pnl_array = daily_pnl.values
     n_days = len(pnl_array)
-    
-    if n_days < 252:
-        log.warning(f"Data contains only {n_days} days. Bootstrap statistics are more reliable with >1 year of data.")
+
+    if n_days < MIN_RECOMMENDED_DAYS:
+        log.warning(
+            "Data contains only %d days. Bootstrap statistics are more reliable with >%d days of history.",
+            n_days, MIN_RECOMMENDED_DAYS,
+        )
         
     np.random.seed(seed)
     
@@ -65,7 +100,7 @@ def bootstrap_strategy(daily_pnl: pd.Series, n_simulations: int = 1000, seed: in
     # ddof=1 matches pandas .std() used in metrics.py for consistency
     stds = paths.std(axis=1, ddof=1)
     stds[stds == 0] = np.nan  # Prevent division by zero
-    sharpe_ratios = (means / stds) * np.sqrt(252)
+    sharpe_ratios = (means / stds) * np.sqrt(TRADING_DAYS_PER_YEAR)
     
     # Max Drawdown
     cum_pnls = paths.cumsum(axis=1)
@@ -81,7 +116,7 @@ def bootstrap_strategy(daily_pnl: pd.Series, n_simulations: int = 1000, seed: in
         "max_drawdown": max_drawdowns
     })
     
-    log.info("Monte Carlo Bootstrap complete.")
+    log.info("Monte Carlo Bootstrap complete — %d simulations over %d days.", n_simulations, n_days)
     return results_df
 
 
@@ -112,7 +147,7 @@ if __name__ == "__main__":
     # Save results
     out_path = RESULTS_DIR / "bootstrap_results.parquet"
     bootstrap_results.to_parquet(out_path, index=False)
-    log.info(f"Saved {n_sims} simulations to {out_path}")
+    log.info("Saved %d simulations to %s", n_sims, out_path)
     
     # Summary Calculations
     sharpes = bootstrap_results["sharpe_ratio"].dropna()

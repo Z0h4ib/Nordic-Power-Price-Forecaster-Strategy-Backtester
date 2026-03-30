@@ -53,6 +53,13 @@ NORMALITY_ALPHA = 0.05
 # AR(1) autocorrelation threshold — if |ρ| exceeds this, apply AR(1) structure
 AR1_THRESHOLD = 0.1
 
+# Above this sample size Shapiro-Wilk loses power; switch to Jarque-Bera
+SHAPIRO_MAX_SAMPLES = 5_000
+
+# Monte Carlo simulation defaults
+MC_N_SIMULATIONS = 1_000
+MC_RANDOM_SEED   = 42
+
 
 # ---------------------------------------------------------------------------
 # Normality testing
@@ -81,7 +88,7 @@ def test_normality(residuals: np.ndarray) -> tuple[bool, str]:
     """
     n = len(residuals)
 
-    if n > 5_000:
+    if n > SHAPIRO_MAX_SAMPLES:
         stat, p_value = stats.jarque_bera(residuals)
         test_name = "Jarque-Bera"
     else:
@@ -314,8 +321,8 @@ def run_monte_carlo(zone: str = "DK1") -> pd.DataFrame:
     mc_df = simulate_price_paths(
         forecasts=test_df["forecast"].values,
         residuals=residuals,
-        n_simulations=1_000,
-        seed=42,
+        n_simulations=MC_N_SIMULATIONS,
+        seed=MC_RANDOM_SEED,
         use_ar1=True,
     )
 

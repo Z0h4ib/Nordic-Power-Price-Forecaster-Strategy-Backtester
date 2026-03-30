@@ -1,3 +1,19 @@
+"""
+src/backtest/metrics.py
+
+Performance metric computation for the Nordic Power strategy backtester.
+
+Computes the full suite of trading metrics required by PHASE4.md:
+Sharpe ratio, Sortino ratio, max drawdown, win rate, profit factor,
+average winning/losing trade, trade count, and max consecutive losses.
+
+All ratio metrics are annualised using 252 trading days.
+
+Usage::
+
+    python -m src.backtest.metrics --threshold 0.05
+"""
+
 import argparse
 import logging
 from pathlib import Path
@@ -21,7 +37,10 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_DIR = PROJECT_ROOT / "data" / "results"
+RESULTS_DIR  = PROJECT_ROOT / "data" / "results"
+
+#: Annualisation factor for Sharpe/Sortino (daily P&L → annual).
+TRADING_DAYS_PER_YEAR = 252
 
 # ---------------------------------------------------------------------------
 # Metrics Engine
@@ -61,7 +80,7 @@ def compute_metrics(trade_log: pd.DataFrame, daily_pnl: pd.Series, zone: str, th
     daily_std = daily_pnl.std()
     
     metrics["sharpe_ratio"] = (
-        (daily_mean / daily_std * np.sqrt(252))
+        (daily_mean / daily_std * np.sqrt(TRADING_DAYS_PER_YEAR))
         if daily_std != 0 and pd.notna(daily_std)
         else 0.0
     )
@@ -70,7 +89,7 @@ def compute_metrics(trade_log: pd.DataFrame, daily_pnl: pd.Series, zone: str, th
     downside_returns = daily_pnl[daily_pnl < 0]
     downside_std = np.sqrt((downside_returns ** 2).mean())
     metrics["sortino_ratio"] = (
-        (daily_mean / downside_std * np.sqrt(252))
+        (daily_mean / downside_std * np.sqrt(TRADING_DAYS_PER_YEAR))
         if downside_std != 0 and pd.notna(downside_std)
         else 0.0
     )

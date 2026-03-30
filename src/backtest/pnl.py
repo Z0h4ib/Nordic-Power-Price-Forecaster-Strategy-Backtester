@@ -1,3 +1,22 @@
+"""
+src/backtest/pnl.py
+
+P&L calculation and trade log construction for the Nordic Power strategy backtester.
+
+For each timestep the hourly P&L is computed as::
+
+    hourly_pnl = signal × (actual_price − forward_price)
+
+where ``signal`` ∈ {+1, −1, 0} is produced by :mod:`src.backtest.strategy`.
+Results are accumulated into a cumulative P&L series and aggregated to
+daily totals for downstream metric and Monte Carlo calculations.
+
+Usage::
+
+    python -m src.backtest.pnl            # DK1, threshold=5%
+    python -m src.backtest.pnl --zone DK2 --threshold 0.02
+"""
+
 import argparse
 import logging
 from pathlib import Path

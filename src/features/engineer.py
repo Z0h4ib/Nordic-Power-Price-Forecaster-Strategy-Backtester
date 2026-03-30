@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 # ---------------------------------------------------------------------------
@@ -62,18 +63,21 @@ FEATURE_COLUMNS = [
 
 CHUNK_SIZE = 5_000
 
+#: Small epsilon added to the renewables denominator to prevent division by zero.
+RENEWABLES_EPS = 1e-6
+
 
 # ---------------------------------------------------------------------------
 # DB helpers
 # ---------------------------------------------------------------------------
 
-def get_engine():
+def get_engine() -> Engine:
     """
     Build a SQLAlchemy engine from .env credentials.
 
     Returns
     -------
-    sqlalchemy.engine.Engine
+    Engine
     """
     load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
     user = os.getenv("DB_USER")
@@ -91,7 +95,7 @@ def get_engine():
 # Step 1 — Load & merge
 # ---------------------------------------------------------------------------
 
-def load_raw_data(engine) -> pd.DataFrame:
+def load_raw_data(engine: Engine) -> pd.DataFrame:
     """
     Load spot_prices, generation, and weather from PostgreSQL and merge
     into a single DataFrame keyed on ``(timestamp_utc, bidding_zone)``.
@@ -259,7 +263,7 @@ def add_generation_features(df: pd.DataFrame) -> pd.DataFrame:
     df["wind_lag_24h"]  = df.groupby("bidding_zone")["wind_total_mw"].shift(24)
 
     total_ren = df["wind_total_mw"] + df["solar_mw"].fillna(0)
-    df["renewables_ratio"] = total_ren / (total_ren + 1e-6)
+    df["renewables_ratio"] = total_ren / (total_ren + RENEWABLES_EPS)
 
     log.info("Generation features added (5 columns).")
     return df
@@ -365,7 +369,7 @@ def run_quality_checks(df: pd.DataFrame) -> pd.DataFrame:
 # Step 8 — Master pipeline
 # ---------------------------------------------------------------------------
 
-def build_features(engine) -> pd.DataFrame:
+def build_features(engine: Engine) -> pd.DataFrame:
     """
     End-to-end feature engineering pipeline.
 
@@ -406,7 +410,7 @@ def build_features(engine) -> pd.DataFrame:
 # Save to PostgreSQL
 # ---------------------------------------------------------------------------
 
-def save_features(df: pd.DataFrame, engine) -> int:
+def save_features(df: pd.DataFrame, engine: Engine) -> int:
     """
     Save the feature DataFrame to the ``features`` table in PostgreSQL.
 

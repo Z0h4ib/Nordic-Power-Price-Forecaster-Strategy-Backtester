@@ -69,6 +69,11 @@ TARGET_COL         = "price_next_24h"
 INITIAL_TRAIN_END  = "2023-06-30"
 RANDOM_SEED        = 42
 
+#: Number of random hyperparameter combinations evaluated during tuning.
+TUNE_N_ITER   = 20
+#: Number of inner TimeSeriesSplit folds used during hyperparameter search.
+TUNE_N_SPLITS = 5
+
 # ---------------------------------------------------------------------------
 # Feature specification
 # ---------------------------------------------------------------------------
@@ -313,7 +318,7 @@ class XGBoostForecaster:
         return self._model.predict(X_proc)
 
     @property
-    def booster(self):
+    def booster(self) -> XGBRegressor | None:
         """Underlying XGBRegressor, accessible after fit()."""
         return self._model
 
@@ -326,7 +331,7 @@ def run_walk_forward(
     model_params: dict,
     df: pd.DataFrame,
     zone: str,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, XGBoostForecaster | None]:
     """
     Run the tuned XGBoost through all walk-forward folds.
 
@@ -459,7 +464,7 @@ def run_zone(zone: str) -> None:
         log.warning("[%s] Initial training set is empty — using full dataset for tuning.", zone)
         initial_train = df
 
-    best_params = tune_hyperparameters(initial_train, n_iter=20, n_splits=5)
+    best_params = tune_hyperparameters(initial_train, n_iter=TUNE_N_ITER, n_splits=TUNE_N_SPLITS)
 
     # ---- Step 2: Save best params -------------------------------------------
     params_path = RESULTS_DIR / "best_params.json"

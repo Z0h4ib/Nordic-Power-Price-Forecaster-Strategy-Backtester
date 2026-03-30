@@ -13,7 +13,9 @@ Requires ENTSO_E_API_KEY in a .env file at the project root.
 import logging
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -134,7 +136,7 @@ def monthly_ranges(
 # Retry helper
 # ---------------------------------------------------------------------------
 
-def _fetch_with_retry(call_fn, description: str):
+def _fetch_with_retry(call_fn: Callable[[], Any], description: str) -> Any:
     """
     Call ``call_fn()`` with exponential backoff retries on HTTP 503 errors.
 
