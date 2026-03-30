@@ -53,6 +53,9 @@ RAW_DIR      = PROJECT_ROOT / "data" / "raw"
 # Retry budget for transient HTTP errors
 MAX_RETRIES = 3
 
+# Wait time for each request before failing
+REQUEST_TIMEOUT_SECONDS = 60
+
 
 # ---------------------------------------------------------------------------
 # API call
@@ -117,7 +120,7 @@ def fetch_weather_location(
     response = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            response = requests.get(ARCHIVE_URL, params=params, timeout=60)
+            response = requests.get(ARCHIVE_URL, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
             response.raise_for_status()
             break
         except requests.HTTPError as exc:

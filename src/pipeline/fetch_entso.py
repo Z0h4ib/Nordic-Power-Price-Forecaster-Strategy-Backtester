@@ -165,7 +165,7 @@ def _fetch_with_retry(call_fn: Callable[[], Any], description: str) -> Any:
         The last exception raised after all retry attempts are exhausted,
         or immediately for non-503 errors.
     """
-    last_exc: Exception | None = None
+    last_exc: Exception = Exception("Max retries exceeded without an exception")
 
     for attempt, wait in enumerate([0] + RETRY_WAIT_SECONDS, start=1):
         if wait:
@@ -490,7 +490,7 @@ def main() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     log.info(
         "Starting ENTSO-E fetch | %s → %s",
-        DATA_START.date(), pd.Timestamp("2024-12-31").date(),
+        DATA_START.date(), (DATA_END - pd.Timedelta(days=1)).date(),
     )
 
     prices_df     = fetch_all_prices(client)

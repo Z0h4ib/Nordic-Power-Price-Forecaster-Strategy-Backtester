@@ -66,6 +66,21 @@ CHUNK_SIZE = 5_000
 #: Small epsilon added to the renewables denominator to prevent division by zero.
 RENEWABLES_EPS = 1e-6
 
+# Time Constants
+HOURS_IN_DAY = 24
+MONTHS_IN_YEAR = 12
+WEEKEND_DAYS = [5, 6]
+TARGET_SHIFT = -24
+
+# Lag and Rolling Windows
+SHIFT_1H = 1
+SHIFT_2H = 2
+SHIFT_24H = 24
+SHIFT_48H = 48
+SHIFT_168H = 168
+ROLLING_24H = 24
+ROLLING_168H = 168
+
 
 # ---------------------------------------------------------------------------
 # DB helpers
@@ -170,11 +185,11 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
         Input DataFrame with lag columns appended.
     """
     lags = [
-        ("price_lag_1h",   1),
-        ("price_lag_2h",   2),
-        ("price_lag_24h",  24),
-        ("price_lag_48h",  48),
-        ("price_lag_168h", 168),
+        ("price_lag_1h",   SHIFT_1H),
+        ("price_lag_2h",   SHIFT_2H),
+        ("price_lag_24h",  SHIFT_24H),
+        ("price_lag_48h",  SHIFT_48H),
+        ("price_lag_168h", SHIFT_168H),
     ]
     for col, n in lags:
         df[col] = df.groupby("bidding_zone")["price_eur_mwh"].shift(n)
@@ -182,9 +197,9 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
     for zone in df.bidding_zone.unique():
         mask = df.bidding_zone == zone
         s = df.loc[mask, "price_eur_mwh"]
-        df.loc[mask, "price_rolling_mean_24h"]  = s.rolling(24,  min_periods=1).mean()
-        df.loc[mask, "price_rolling_std_24h"]   = s.rolling(24,  min_periods=1).std()
-        df.loc[mask, "price_rolling_mean_168h"] = s.rolling(168, min_periods=1).mean()
+        df.loc[mask, "price_rolling_mean_24h"]  = s.rolling(ROLLING_24H,  min_periods=1).mean()
+        df.loc[mask, "price_rolling_std_24h"]   = s.rolling(ROLLING_24H,  min_periods=1).std()
+        df.loc[mask, "price_rolling_mean_168h"] = s.rolling(ROLLING_168H, min_periods=1).mean()
 
     log.info("Lag features added (8 columns).")
     return df
@@ -218,13 +233,13 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     ts = df["timestamp_utc"]
 
     df["hour"]        = ts.dt.hour
-    df["hour_sin"]    = np.sin(2 * np.pi * df["hour"] / 24)
-    df["hour_cos"]    = np.cos(2 * np.pi * df["hour"] / 24)
+    df["hour_sin"]    = np.sin(2 * np.pi * df["hour"] / HOURS_IN_DAY)
+    df["hour_cos"]    = np.cos(2 * np.pi * df["hour"] / HOURS_IN_DAY)
     df["day_of_week"] = ts.dt.dayofweek
-    df["is_weekend"]  = df["day_of_week"].isin([5, 6])
+    df["is_weekend"]  = df["day_of_week"].isin(WEEKEND_DAYS)
     df["month"]       = ts.dt.month
-    df["month_sin"]   = np.sin(2 * np.pi * df["month"] / 12)
-    df["month_cos"]   = np.cos(2 * np.pi * df["month"] / 12)
+    df["month_sin"]   = np.sin(2 * np.pi * df["month"] / MONTHS_IN_YEAR)
+    df["month_cos"]   = np.cos(2 * np.pi * df["month"] / MONTHS_IN_YEAR)
 
     years = range(int(ts.dt.year.min()), int(ts.dt.year.max()) + 1)
     dk_hol = holidays.Denmark(years=years)
@@ -259,8 +274,8 @@ def add_generation_features(df: pd.DataFrame) -> pd.DataFrame:
         Input DataFrame with generation feature columns appended.
     """
     df["wind_total_mw"] = df["wind_onshore_mw"].fillna(0) + df["wind_offshore_mw"].fillna(0)
-    df["wind_lag_1h"]   = df.groupby("bidding_zone")["wind_total_mw"].shift(1)
-    df["wind_lag_24h"]  = df.groupby("bidding_zone")["wind_total_mw"].shift(24)
+    df["wind_lag_1h"]   = df.groupby("bidding_zone")["wind_total_mw"].shift(SHIFT_1H)
+    df["wind_lag_24h"]  = df.groupby("bidding_zone")["wind_total_mw"].shift(SHIFT_24H)
 
     total_ren = df["wind_total_mw"] + df["solar_mw"].fillna(0)
     df["renewables_ratio"] = total_ren / (total_ren + RENEWABLES_EPS)
@@ -319,7 +334,7 @@ def add_target(df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         Input DataFrame with ``price_next_24h`` appended.
     """
-    df["price_next_24h"] = df.groupby("bidding_zone")["price_eur_mwh"].shift(-24)
+    df["price_next_24h"] = df.groupby("bidding_zone")["price_eur_mwh"].shift(TARGET_SHIFT)
     log.info("Target added (price_next_24h).")
     return df
 
