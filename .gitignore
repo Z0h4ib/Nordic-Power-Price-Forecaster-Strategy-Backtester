@@ -45,3 +45,6 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# Trained model binaries (large, reproducible from source)
+*.joblib
