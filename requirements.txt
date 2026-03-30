@@ -11,3 +11,5 @@ plotly
 statsmodels
 jupyter
 numpy
+holidays
+seaborn

@@ -12,6 +12,7 @@ Requires ENTSO_E_API_KEY in a .env file at the project root.
 
 import logging
 import os
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -52,6 +53,12 @@ GENERATION_COLUMNS = {
     "Wind Offshore": "wind_offshore_mw",
     "Solar":         "solar_mw",
 }
+
+# Seconds to wait before each retry attempt on a 503 (exponential-ish backoff)
+RETRY_WAIT_SECONDS = [10, 30, 60]
+
+# Polite pause between every API call — reduces rate-limit pressure
+INTER_REQUEST_SLEEP = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +131,60 @@ def monthly_ranges(
 
 
 # ---------------------------------------------------------------------------
+# Retry helper
+# ---------------------------------------------------------------------------
+
+def _fetch_with_retry(call_fn, description: str):
+    """
+    Call ``call_fn()`` with exponential backoff retries on HTTP 503 errors.
+
+    ENTSO-E returns 503 under two conditions observed in practice:
+    - Rate limiting (requests fired too close together)
+    - Paginated requests (offset > 0) hitting an overloaded shard
+
+    The inter-request sleep (``INTER_REQUEST_SLEEP``) reduces the first cause;
+    this retry loop recovers from the second.
+
+    Parameters
+    ----------
+    call_fn : callable
+        Zero-argument callable that performs one ENTSO-E API call.
+    description : str
+        Human-readable label used in log messages (e.g. "prices DK1 2023-01").
+
+    Returns
+    -------
+    Any
+        Whatever ``call_fn()`` returns on success.
+
+    Raises
+    ------
+    Exception
+        The last exception raised after all retry attempts are exhausted,
+        or immediately for non-503 errors.
+    """
+    last_exc: Exception | None = None
+
+    for attempt, wait in enumerate([0] + RETRY_WAIT_SECONDS, start=1):
+        if wait:
+            log.info(
+                "Retrying %s (attempt %d/%d) — waiting %ds after 503…",
+                description, attempt, len(RETRY_WAIT_SECONDS) + 1, wait,
+            )
+            time.sleep(wait)
+        try:
+            return call_fn()
+        except Exception as exc:
+            last_exc = exc
+            if "503" in str(exc) and attempt <= len(RETRY_WAIT_SECONDS):
+                log.warning("503 on attempt %d for %s", attempt, description)
+                continue
+            raise  # non-503, or retries exhausted — propagate immediately
+
+    raise last_exc  # all 503 retries exhausted
+
+
+# ---------------------------------------------------------------------------
 # Price fetching
 # ---------------------------------------------------------------------------
 
@@ -166,17 +227,22 @@ def fetch_prices_zone(
             "Fetching prices | %s | %s → %s",
             label, chunk_start.date(), chunk_end.date(),
         )
+        desc = f"prices {label} {chunk_start.date()}→{chunk_end.date()}"
         try:
-            series = client.query_day_ahead_prices(
-                area_code, start=chunk_start, end=chunk_end
+            series = _fetch_with_retry(
+                lambda s=chunk_start, e=chunk_end: client.query_day_ahead_prices(
+                    area_code, start=s, end=e
+                ),
+                desc,
             )
             chunks.append(series)
         except Exception as exc:
-            # Log and skip — a single missing month should not abort the run
             log.warning(
-                "No price data for %s %s → %s: %s",
+                "Skipping prices for %s %s → %s after all retries: %s",
                 label, chunk_start.date(), chunk_end.date(), exc,
             )
+        finally:
+            time.sleep(INTER_REQUEST_SLEEP)
 
     if not chunks:
         log.warning("No price data retrieved for %s over full range.", label)
@@ -280,16 +346,22 @@ def fetch_generation_zone(
             "Fetching generation | %s | %s → %s",
             label, chunk_start.date(), chunk_end.date(),
         )
+        desc = f"generation {label} {chunk_start.date()}→{chunk_end.date()}"
         try:
-            raw = client.query_generation(
-                area_code, start=chunk_start, end=chunk_end
+            raw = _fetch_with_retry(
+                lambda s=chunk_start, e=chunk_end: client.query_generation(
+                    area_code, start=s, end=e
+                ),
+                desc,
             )
             chunks.append(raw)
         except Exception as exc:
             log.warning(
-                "No generation data for %s %s → %s: %s",
+                "Skipping generation for %s %s → %s after all retries: %s",
                 label, chunk_start.date(), chunk_end.date(), exc,
             )
+        finally:
+            time.sleep(INTER_REQUEST_SLEEP)
 
     if not chunks:
         log.warning("No generation data retrieved for %s over full range.", label)

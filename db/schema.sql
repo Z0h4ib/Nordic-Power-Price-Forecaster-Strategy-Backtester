@@ -1,6 +1,7 @@
 -- Nordic Power Price Forecaster — PostgreSQL schema
 -- Safe to rerun: drops and recreates all tables
 
+DROP TABLE IF EXISTS features;
 DROP TABLE IF EXISTS weather;
 DROP TABLE IF EXISTS generation;
 DROP TABLE IF EXISTS spot_prices;
@@ -44,3 +45,47 @@ CREATE TABLE weather (
 );
 
 CREATE INDEX idx_weather_timestamp ON weather (timestamp_utc);
+
+
+-- Model-ready feature dataset (Phase 2 output)
+CREATE TABLE features (
+    id                      SERIAL PRIMARY KEY,
+    timestamp_utc           TIMESTAMP NOT NULL,
+    bidding_zone            VARCHAR(10) NOT NULL,
+    -- lag features
+    price_lag_1h            FLOAT,
+    price_lag_2h            FLOAT,
+    price_lag_24h           FLOAT,
+    price_lag_48h           FLOAT,
+    price_lag_168h          FLOAT,
+    price_rolling_mean_24h  FLOAT,
+    price_rolling_std_24h   FLOAT,
+    price_rolling_mean_168h FLOAT,
+    -- calendar features
+    hour                    INT,
+    hour_sin                FLOAT,
+    hour_cos                FLOAT,
+    day_of_week             INT,
+    is_weekend              BOOLEAN,
+    month                   INT,
+    month_sin               FLOAT,
+    month_cos               FLOAT,
+    is_danish_holiday       BOOLEAN,
+    -- generation features
+    wind_total_mw           FLOAT,
+    wind_lag_1h             FLOAT,
+    wind_lag_24h            FLOAT,
+    solar_mw                FLOAT,
+    renewables_ratio        FLOAT,
+    -- weather features
+    temp_aarhus             FLOAT,
+    temp_cph                FLOAT,
+    wind_speed_aarhus       FLOAT,
+    wind_speed_cph          FLOAT,
+    temp_mean_dk            FLOAT,
+    -- target
+    price_next_24h          FLOAT,
+    UNIQUE (timestamp_utc, bidding_zone)
+);
+
+CREATE INDEX idx_features_timestamp ON features (timestamp_utc);
