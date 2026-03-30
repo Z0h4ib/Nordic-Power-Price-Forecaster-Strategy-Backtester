@@ -1,6 +1,8 @@
 -- Nordic Power Price Forecaster — PostgreSQL schema
 -- Safe to rerun: drops and recreates all tables
 
+DROP TABLE IF EXISTS backtest_metrics;
+DROP TABLE IF EXISTS trades;
 DROP TABLE IF EXISTS features;
 DROP TABLE IF EXISTS weather;
 DROP TABLE IF EXISTS generation;
@@ -89,3 +91,35 @@ CREATE TABLE features (
 );
 
 CREATE INDEX idx_features_timestamp ON features (timestamp_utc);
+
+-- Backtest trade log (Phase 4 output)
+CREATE TABLE trades (
+    id              SERIAL PRIMARY KEY,
+    timestamp_utc   TIMESTAMP NOT NULL,
+    bidding_zone    VARCHAR(10) NOT NULL,
+    signal          INT,
+    forecast        FLOAT,
+    forward_price   FLOAT,
+    actual_price    FLOAT,
+    hourly_pnl      FLOAT,
+    UNIQUE (timestamp_utc, bidding_zone)
+);
+CREATE INDEX idx_trades_timestamp ON trades (timestamp_utc);
+
+-- Backtest metrics (Phase 4 output)
+CREATE TABLE backtest_metrics (
+    id                     SERIAL PRIMARY KEY,
+    zone                   VARCHAR(50) NOT NULL,
+    threshold              FLOAT NOT NULL,
+    total_return           FLOAT,
+    sharpe_ratio           FLOAT,
+    sortino_ratio          FLOAT,
+    max_drawdown           FLOAT,
+    trade_count            INT,
+    win_rate               FLOAT,
+    profit_factor          FLOAT,
+    avg_win                FLOAT,
+    avg_loss               FLOAT,
+    max_consecutive_losses INT,
+    UNIQUE (zone, threshold)
+);
