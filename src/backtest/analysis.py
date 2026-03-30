@@ -40,17 +40,16 @@ def run_threshold_sensitivity(forecasts_df: pd.DataFrame, zone: str):
             "trade_count": m["trade_count"]
         })
 
-    # Save and print
+    # Save and log
     df_results = pd.DataFrame(results)
     out_csv = RESULTS_DIR / "threshold_sensitivity.csv"
     df_results.to_csv(out_csv, index=False)
-    
-    print("\n" + "="*60)
-    print(f"--- Threshold Sensitivity Comparison ({zone}) ---")
-    print("="*60)
-    print(df_results.to_string(index=False))
-    print("="*60 + "\n")
-    log.info(f"Saved threshold sensitivity results to {out_csv}")
+
+    log.info(
+        "Threshold Sensitivity (%s):\n  %s\n%s\n  %s",
+        zone, "="*60, df_results.to_string(index=False), "="*60,
+    )
+    log.info("Saved threshold sensitivity results to %s", out_csv)
 
 
 def run_regime_analysis(forecasts_df: pd.DataFrame, zone: str):
@@ -102,17 +101,16 @@ def run_regime_analysis(forecasts_df: pd.DataFrame, zone: str):
             "trade_count": m["trade_count"]
         })
 
-    # Save and print
+    # Save and log
     df_results = pd.DataFrame(results)
     out_csv = RESULTS_DIR / "regime_analysis.csv"
     df_results.to_csv(out_csv, index=False)
-    
-    print("\n" + "="*60)
-    print(f"--- Regime Analysis ({zone}) ---")
-    print("="*60)
-    print(df_results.to_string(index=False))
-    print("="*60 + "\n")
-    log.info(f"Saved regime analysis results to {out_csv}")
+
+    log.info(
+        "Regime Analysis (%s):\n  %s\n%s\n  %s",
+        zone, "="*60, df_results.to_string(index=False), "="*60,
+    )
+    log.info("Saved regime analysis results to %s", out_csv)
 
 
 if __name__ == "__main__":

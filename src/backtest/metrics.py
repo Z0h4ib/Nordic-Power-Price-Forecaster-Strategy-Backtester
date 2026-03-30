@@ -147,17 +147,15 @@ if __name__ == "__main__":
         m = compute_metrics(trade_log, daily_pnl, zone, args.threshold)
         results.append(m)
         
-        # Print for DK1 as requested
+        # Log summary for DK1
         if zone == "DK1":
-            print("=" * 60)
-            print(f"--- Backtest Metrics: {zone} | Threshold: {args.threshold*100:.0f}% ---")
-            print("=" * 60)
+            lines = [f"  {'='*55}",
+                     f"  --- Backtest Metrics: {zone} | Threshold: {args.threshold*100:.0f}% ---",
+                     f"  {'='*55}"]
             for k, v in m.items():
-                if isinstance(v, float):
-                    print(f"{k:25}: {v:10.4f}")
-                else:
-                    print(f"{k:25}: {v}")
-            print("=" * 60)
+                lines.append(f"  {k:25}: {v:10.4f}" if isinstance(v, float) else f"  {k:25}: {v}")
+            lines.append(f"  {'='*55}")
+            log.info("\n".join(lines))
 
     # Save to CSV
     if results:

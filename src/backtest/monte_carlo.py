@@ -60,9 +60,10 @@ def bootstrap_strategy(daily_pnl: pd.Series, n_simulations: int = 1000, seed: in
     
     # Calculate metrics via vectorization across axis=1
     total_returns = paths.sum(axis=1)
-    
+
     means = paths.mean(axis=1)
-    stds = paths.std(axis=1)
+    # ddof=1 matches pandas .std() used in metrics.py for consistency
+    stds = paths.std(axis=1, ddof=1)
     stds[stds == 0] = np.nan  # Prevent division by zero
     sharpe_ratios = (means / stds) * np.sqrt(252)
     
@@ -123,19 +124,19 @@ if __name__ == "__main__":
     pct_gt_0 = (sharpes > 0).mean() * 100
     pct_gt_1 = (sharpes > 1.0).mean() * 100
     
-    print("\n" + "="*60)
-    print("--- Monte Carlo Bootstrap Stress Test Summary (DK1) ---")
-    print("="*60)
-    print(f"5th percentile Sharpe (worst-case) : {p05:8.4f}")
-    print(f"50th percentile Sharpe (median)    : {p50:8.4f}")
-    print(f"95th percentile Sharpe (best-case) : {p95:8.4f}")
-    print("-" * 60)
-    print(f"% of simulations with Sharpe > 0   : {pct_gt_0:8.2f}%")
-    print(f"% of simulations with Sharpe > 1.0 : {pct_gt_1:8.2f}%")
-    print("="*60 + "\n")
-    
+    log.info(
+        "\n  %s\n  --- Monte Carlo Bootstrap Stress Test Summary (DK1) ---\n  %s\n"
+        "  5th  pct Sharpe (worst-case) : %8.4f\n"
+        "  50th pct Sharpe (median)     : %8.4f\n"
+        "  95th pct Sharpe (best-case)  : %8.4f\n"
+        "  %s\n"
+        "  %% of sims with Sharpe > 0   : %8.2f%%\n"
+        "  %% of sims with Sharpe > 1.0 : %8.2f%%\n  %s",
+        "="*60, "="*60, p05, p50, p95, "-"*60, pct_gt_0, pct_gt_1, "="*60,
+    )
+
     # Insight block evaluating the edge
     if p05 > 0:
-        print("Insight: The strategy has a robust positive expected edge (5th percentile > 0).")
+        log.info("Insight: The strategy has a robust positive expected edge (5th percentile > 0).")
     else:
-        print("Insight: The strategy exhibits fragility; worst-case paths yield a negative Sharpe.")
+        log.info("Insight: The strategy exhibits fragility; worst-case paths yield a negative Sharpe.")

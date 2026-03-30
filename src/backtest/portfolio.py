@@ -70,29 +70,23 @@ def run_portfolio_analysis(threshold: float = 0.05):
     # Compute Portfolio metrics
     m_port = compute_metrics(comb_trade_log, portfolio_daily_pnl, "Portfolio (50/50)", threshold)
     
-    # Print Comparison Table
-    print("\n" + "=" * 80)
-    print("--- Portfolio Diversification Analysis ---")
-    print("=" * 80)
-    
+    # Log comparison table
     keys = ["total_return", "sharpe_ratio", "max_drawdown", "win_rate", "trade_count", "max_consecutive_losses"]
-    
     header = f"{'Metric':<25} | {'DK1':<12} | {'DK2':<12} | {'Portfolio':<12}"
-    print(header)
-    print("-" * 80)
+    rows = [header, "-" * 80]
     for k in keys:
         v1 = f"{m_dk1[k]:.4f}" if isinstance(m_dk1[k], float) else str(m_dk1[k])
         v2 = f"{m_dk2[k]:.4f}" if isinstance(m_dk2[k], float) else str(m_dk2[k])
         vp = f"{m_port[k]:.4f}" if isinstance(m_port[k], float) else str(m_port[k])
-        print(f"{k:<25} | {v1:<12} | {v2:<12} | {vp:<12}")
-    
-    print("=" * 80)
-    print(f"Pearson Correlation (DK1 vs DK2 daily P&L): {correlation:.4f}")
-    
+        rows.append(f"{k:<25} | {v1:<12} | {v2:<12} | {vp:<12}")
+    rows.append("=" * 80)
+    rows.append(f"Pearson Correlation (DK1 vs DK2 daily P&L): {correlation:.4f}")
+    log.info("Portfolio Diversification Analysis:\n  %s\n%s", "="*80, "\n".join(rows))
+
     # Diversification insight
     best_sharpe = max(m_dk1['sharpe_ratio'], m_dk2['sharpe_ratio'])
-    best_dd = max(m_dk1['max_drawdown'], m_dk2['max_drawdown'])  # Max drawdown is negative, closer to 0 is better
-    
+    best_dd = max(m_dk1['max_drawdown'], m_dk2['max_drawdown'])  # negative; closer to 0 is better
+
     improved_sharpe = m_port['sharpe_ratio'] > best_sharpe
     reduced_dd = m_port['max_drawdown'] > best_dd
 
@@ -101,21 +95,18 @@ def run_portfolio_analysis(threshold: float = 0.05):
         insight.append("Sharpe Ratio improved compared to the best individual zone.")
     else:
         insight.append("Sharpe Ratio did not strictly improve over the best individual zone (but may be more stable).")
-        
+
     if reduced_dd:
         insight.append("Max Drawdown was meaningfully reduced (diversification smoothed the losses).")
     else:
         insight.append("Max Drawdown was NOT reduced beyond the best individual zone level.")
-        
+
     if correlation < 0.5:
         insight.append("Low correlation confirms a strong diversification benefit between the zones.")
     else:
         insight.append("High correlation suggests the zones move similarly; diversification benefit is limited.")
 
-    print("\nDiversification Insight:")
-    for statement in insight:
-        print(f"- {statement}")
-    print("\n")
+    log.info("Diversification Insight:\n  - %s", "\n  - ".join(insight))
 
 
 if __name__ == "__main__":

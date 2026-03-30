@@ -102,13 +102,15 @@ CREATE TABLE trades (
     forward_price   FLOAT,
     actual_price    FLOAT,
     hourly_pnl      FLOAT,
-    UNIQUE (timestamp_utc, bidding_zone)
+    threshold       FLOAT,            -- which threshold setting generated this trade
+    UNIQUE (timestamp_utc, bidding_zone, threshold)
 );
 CREATE INDEX idx_trades_timestamp ON trades (timestamp_utc);
 
 -- Backtest metrics (Phase 4 output)
 CREATE TABLE backtest_metrics (
     id                     SERIAL PRIMARY KEY,
+    run_timestamp          TIMESTAMP DEFAULT NOW(),
     zone                   VARCHAR(50) NOT NULL,
     threshold              FLOAT NOT NULL,
     total_return           FLOAT,
