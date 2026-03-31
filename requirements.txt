@@ -13,3 +13,5 @@ jupyter
 numpy
 holidays
 seaborn
+shap
+pytest

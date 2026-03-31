@@ -48,3 +48,7 @@ htmlcov/
 
 # Trained model binaries (large, reproducible from source)
 *.joblib
+
+# Generated data files (large, reproducible by running the pipeline)
+*.parquet
+data/processed/
