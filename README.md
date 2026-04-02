@@ -218,7 +218,7 @@ Full technical detail in [`docs/methodology.md`](docs/methodology.md). Summary:
 ## Author
 
 **Zohaib Asghar**
-BSc student, Danmarks Tekniske Universitet (DTU)
+BSc student, Danmarks Tekniske Universitet (DTU) 
 
 - GitHub: [github.com/Z0h4ib](https://github.com/Z0h4ib)
 - LinkedIn: [linkedin.com/in/zohaib-asghar](https://linkedin.com/in/zohaib-asghar)
